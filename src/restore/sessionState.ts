@@ -53,6 +53,27 @@ const GUARD_PATTERNS: readonly {
     detect: /\bSET\b[^;]*\bSQL_NOTES\s*=\s*0\b/i,
     restore: 'SET SQL_NOTES=COALESCE(@OLD_SQL_NOTES, 1)',
   },
+  {
+    code: 'CHARACTER_SET_CLIENT',
+    detect: /\bSET\s+NAMES\b|\bCHARACTER_SET_CLIENT\s*=/i,
+    restore:
+      'SET CHARACTER_SET_CLIENT=COALESCE(@OLD_CHARACTER_SET_CLIENT, @@GLOBAL.character_set_client)',
+  },
+  {
+    code: 'CHARACTER_SET_RESULTS',
+    detect: /\bSET\s+NAMES\b|\bCHARACTER_SET_RESULTS\s*=/i,
+    // NULL is a meaningful saved value here (`character_set_results=binary`),
+    // so COALESCE would be lossy. A native dump always initializes this user
+    // variable before SET NAMES; an absent variable also evaluates to NULL,
+    // which is the safest fallback for a hand-written fragment.
+    restore: 'SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS',
+  },
+  {
+    code: 'COLLATION_CONNECTION',
+    detect: /\bSET\s+NAMES\b|\bCOLLATION_CONNECTION\s*=/i,
+    restore:
+      'SET COLLATION_CONNECTION=COALESCE(@OLD_COLLATION_CONNECTION, @@GLOBAL.collation_connection)',
+  },
 ];
 
 /** A statement that already put a guarded variable back; nothing left to clean up for it. */
@@ -65,6 +86,18 @@ const RESTORED_PATTERNS: readonly { readonly code: string; readonly detect: RegE
   { code: 'SQL_MODE', detect: /\bSET\s+SQL_MODE\s*=\s*@OLD_SQL_MODE/i },
   { code: 'TIME_ZONE', detect: /\bSET\s+TIME_ZONE\s*=\s*@OLD_TIME_ZONE/i },
   { code: 'SQL_NOTES', detect: /\bSET\s+SQL_NOTES\s*=\s*@OLD_SQL_NOTES/i },
+  {
+    code: 'CHARACTER_SET_CLIENT',
+    detect: /\bSET\s+CHARACTER_SET_CLIENT\s*=\s*@OLD_CHARACTER_SET_CLIENT/i,
+  },
+  {
+    code: 'CHARACTER_SET_RESULTS',
+    detect: /\bSET\s+CHARACTER_SET_RESULTS\s*=\s*@OLD_CHARACTER_SET_RESULTS/i,
+  },
+  {
+    code: 'COLLATION_CONNECTION',
+    detect: /\bSET\s+COLLATION_CONNECTION\s*=\s*@OLD_COLLATION_CONNECTION/i,
+  },
 ];
 
 /**
@@ -89,19 +122,57 @@ const UNLOCK_TABLES = /^\s*UNLOCK\s+TABLES\b/i;
 /** Pseudo-code used in the `changed` set and in the `session-state-restored` warning. */
 const TABLE_LOCKS = 'TABLE LOCKS';
 
+/**
+ * True only when the statement itself is a top-level SET (possibly wrapped
+ * in a MySQL executable comment), after ordinary leading comments.
+ *
+ * Session-variable names may occur verbatim inside INSERT values, routine
+ * bodies and comments. Searching an entire successful statement for `SET`
+ * would treat that inert text as a session mutation and could "clean it up"
+ * by changing caller-owned state that the restore never touched.
+ */
+function isRootSetStatement(sql: string): boolean {
+  let rest = sql.trimStart();
+  for (;;) {
+    if (rest.startsWith('#')) {
+      const newline = rest.search(/[\r\n]/);
+      if (newline < 0) return false;
+      rest = rest.slice(newline + 1).trimStart();
+      continue;
+    }
+    const third = rest[2];
+    if (rest.startsWith('--') && (third === undefined || third <= ' ')) {
+      const newline = rest.search(/[\r\n]/);
+      if (newline < 0) return false;
+      rest = rest.slice(newline + 1).trimStart();
+      continue;
+    }
+    if (rest.startsWith('/*') && !rest.startsWith('/*!') && !rest.startsWith('/*+')) {
+      const close = rest.indexOf('*/', 2);
+      if (close < 0) return false;
+      rest = rest.slice(close + 2).trimStart();
+      continue;
+    }
+    break;
+  }
+  return /^SET\b/i.test(rest) || /^\/\*!\d{0,6}\s*SET\b/i.test(rest);
+}
+
 export class RestoreSessionState {
   private readonly changed = new Set<string>();
 
   /** Records the session effects of a statement that executed successfully. */
   observe(sql: string): void {
-    for (const guard of GUARD_PATTERNS) {
-      if (guard.detect.test(sql)) {
-        this.changed.add(guard.code);
+    if (isRootSetStatement(sql)) {
+      for (const guard of GUARD_PATTERNS) {
+        if (guard.detect.test(sql)) {
+          this.changed.add(guard.code);
+        }
       }
-    }
-    for (const restored of RESTORED_PATTERNS) {
-      if (restored.detect.test(sql)) {
-        this.changed.delete(restored.code);
+      for (const restored of RESTORED_PATTERNS) {
+        if (restored.detect.test(sql)) {
+          this.changed.delete(restored.code);
+        }
       }
     }
     // Anchored at the start of the statement: a `LOCK TABLES` mentioned inside

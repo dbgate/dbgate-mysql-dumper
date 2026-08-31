@@ -220,12 +220,13 @@ caller.
 
 ### Session cleanup
 
-A dump sets `FOREIGN_KEY_CHECKS=0` in its header and restores it in its footer.
-A restore that stops at a failing statement, or is cancelled, never reaches the
-footer — and the caller's connection then goes back to their pool with
-referential integrity silently switched off. `RestoreSessionState` tracks which
-guards a dump changed and puts them back, reporting a `session-state-restored`
-warning so the intervention is never invisible.
+A dump changes integrity checks, SQL mode, time zone, SQL notes and the three
+charset variables affected by `SET NAMES` in its header, then restores them in
+its footer. A restore that stops at a failing statement, or is cancelled, never
+reaches that footer. `RestoreSessionState` tracks only top-level `SET`
+statements (not matching text inside rows or routine bodies), puts unfinished
+guards back, and reports a `session-state-restored` warning so the intervention
+is never invisible.
 
 ## `writer/` — text and bytes out
 

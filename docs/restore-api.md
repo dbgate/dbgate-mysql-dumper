@@ -162,12 +162,15 @@ above, so nobody is left believing they have atomicity they do not have.
 
 ### `restoreSessionState`
 
-A dump sets `FOREIGN_KEY_CHECKS=0`, `UNIQUE_CHECKS=0`, `SQL_MODE` and `TIME_ZONE`
-in its header and restores them in its footer. A restore that stops at a failing
+A dump changes `FOREIGN_KEY_CHECKS`, `UNIQUE_CHECKS`, `SQL_MODE`, `TIME_ZONE`,
+`SQL_NOTES`, and the `character_set_client` / `character_set_results` /
+`collation_connection` trio established by `SET NAMES`, then restores them in
+its footer. A restore that stops at a failing
 statement (the `stopOnError` default) or is cancelled **never reaches the
 footer** — and the caller's connection then goes back to their pool with
-referential integrity silently disabled. Their next unrelated write no longer
-enforces it, and nothing in the API would let them detect or fix that.
+referential integrity silently disabled or the wrong text encoding. A later,
+unrelated operation could corrupt data, and nothing in the API would identify
+the restore as the cause.
 
 So this defaults to `true`: the guards a dump changed are put back before the
 connection is released, and a `session-state-restored` warning names which.

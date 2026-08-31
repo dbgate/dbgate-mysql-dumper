@@ -166,13 +166,24 @@ describe.each(selectedTargets())('hardening: $label', (target: ServerTarget) => 
     it('leaves session variables untouched after a failed restore', async () => {
       if (!available) return;
       const database = await fresh('vars');
+      await database.connection.query(
+        { sql: 'SET NAMES latin1 COLLATE latin1_swedish_ci' },
+        undefined,
+        'native',
+      );
       const before = await rows(
         database,
-        'SELECT @@SESSION.foreign_key_checks, @@SESSION.unique_checks, @@SESSION.sql_mode',
+        `SELECT @@SESSION.foreign_key_checks, @@SESSION.unique_checks, @@SESSION.sql_mode,
+                @@SESSION.character_set_client, @@SESSION.character_set_results,
+                @@SESSION.collation_connection`,
       );
       await restoreSqlDump({
         connection: database.connection,
         source: [
+          '/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;',
+          '/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;',
+          '/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;',
+          '/*!50503 SET NAMES utf8mb4 */;',
           '/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;',
           '/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;',
           "/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;",
@@ -183,7 +194,9 @@ describe.each(selectedTargets())('hardening: $label', (target: ServerTarget) => 
       expect(
         await rows(
           database,
-          'SELECT @@SESSION.foreign_key_checks, @@SESSION.unique_checks, @@SESSION.sql_mode',
+          `SELECT @@SESSION.foreign_key_checks, @@SESSION.unique_checks, @@SESSION.sql_mode,
+                  @@SESSION.character_set_client, @@SESSION.character_set_results,
+                  @@SESSION.collation_connection`,
         ),
       ).toEqual(before);
     });

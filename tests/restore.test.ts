@@ -227,6 +227,10 @@ describe('restoreSqlDump: definer policy', () => {
 
 describe('restoreSqlDump: session state', () => {
   const dumpHeader = [
+    '/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;',
+    '/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;',
+    '/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;',
+    '/*!50503 SET NAMES utf8mb4 */;',
     '/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;',
     '/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;',
     "/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;",
@@ -245,6 +249,15 @@ describe('restoreSqlDump: session state', () => {
       'SET FOREIGN_KEY_CHECKS=COALESCE(@OLD_FOREIGN_KEY_CHECKS, 1)',
     );
     expect(connection.executedSql).toContain('SET UNIQUE_CHECKS=COALESCE(@OLD_UNIQUE_CHECKS, 1)');
+    expect(connection.executedSql).toContain(
+      'SET CHARACTER_SET_CLIENT=COALESCE(@OLD_CHARACTER_SET_CLIENT, @@GLOBAL.character_set_client)',
+    );
+    expect(connection.executedSql).toContain(
+      'SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS',
+    );
+    expect(connection.executedSql).toContain(
+      'SET COLLATION_CONNECTION=COALESCE(@OLD_COLLATION_CONNECTION, @@GLOBAL.collation_connection)',
+    );
   });
 
   it('does not restore guards the dump already restored itself', async () => {
@@ -256,6 +269,9 @@ describe('restoreSqlDump: session state', () => {
         '/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;',
         '/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;',
         '/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;',
+        '/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;',
+        '/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;',
+        '/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;',
       ].join('\n'),
     });
     expect(result.warnings.map(warning => warning.code)).not.toContain('session-state-restored');
@@ -283,7 +299,9 @@ describe('RestoreSessionState', () => {
 
   it('ignores a statement that merely mentions a variable', () => {
     const state = new RestoreSessionState();
-    state.observe("INSERT INTO log VALUES ('FOREIGN_KEY_CHECKS')");
+    state.observe("INSERT INTO log VALUES ('SET FOREIGN_KEY_CHECKS=0, SET NAMES utf8mb4')");
+    state.observe('CREATE PROCEDURE p() BEGIN SET UNIQUE_CHECKS=0; END');
+    state.observe("-- SET SQL_MODE=''\nSELECT 1");
     expect(state.pendingCount).toBe(0);
   });
 });
