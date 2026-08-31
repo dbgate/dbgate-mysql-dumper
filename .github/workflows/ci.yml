@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  # Fast gate: everything that needs no server. Runs on every push.
+  unit:
+    name: lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: npm test
+      # Proves the built dist/ loads as both ESM and CJS, and that the core
+      # entry point does not need the optional mysql2 peer dependency.
+      - run: npm run test:package
+
+  # The interoperability matrix, against real servers. One job per version so a
+  # failure names the version, and so they run in parallel.
+  integration:
+    name: interop (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: MySQL 5.7
+            image: mysql:5.7
+            target: mysql57
+            port: 33057
+          - label: MySQL 8.0
+            image: mysql:8.0
+            target: mysql80
+            port: 33080
+          - label: MySQL 8.4
+            image: mysql:8.4
+            target: mysql84
+            port: 33084
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # Started via docker compose rather than a service container: the
+      # integration tests reach the container by name to run its own mysqldump
+      # and mysql binaries, which is how native interoperability is proven.
+      - name: Start ${{ matrix.label }}
+        run: docker compose -f integration/docker-compose.yml up -d --wait ${{ matrix.target }}
+
+      - name: Run integration tests
+        env:
+          # Turns "no server reachable" into a hard failure, so the suite can
+          # never silently no-op in CI.
+          MYSQL_TEST_REQUIRED: '1'
+          MYSQL_TEST_TARGETS: ${{ matrix.target }}
+        run: npm run test:integration
+
+      - name: Upload dump artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dumps-${{ matrix.target }}
+          path: test-output/
+          if-no-files-found: ignore
+
+      - name: Server logs on failure
+        if: failure()
+        run: docker compose -f integration/docker-compose.yml logs ${{ matrix.target }}
+
+      - name: Stop ${{ matrix.label }}
+        if: always()
+        run: docker compose -f integration/docker-compose.yml down -v

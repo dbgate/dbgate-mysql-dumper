@@ -1,0 +1,92 @@
+{
+  "name": "dbgate-mysql-dumper",
+  "version": "0.1.0",
+  "description": "Standalone, client-agnostic MySQL SQL dump and restore library for Node.js, compatible with native mysqldump/mysql",
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dbgate/dbgate-mysql-dumper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dbgate/dbgate-mysql-dumper/issues"
+  },
+  "homepage": "https://github.com/dbgate/dbgate-mysql-dumper#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "dist",
+    "docs"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./mysql2": {
+      "types": "./dist/mysql2.d.ts",
+      "import": "./dist/mysql2.js",
+      "require": "./dist/mysql2.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "tsup --clean",
+    "docker:down": "docker compose -f integration/docker-compose.yml down -v",
+    "docker:logs": "docker compose -f integration/docker-compose.yml logs -f",
+    "docker:up": "docker compose -f integration/docker-compose.yml up -d --wait",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings 0",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm test && npm run build && node scripts/smoke.mjs",
+    "test": "vitest run",
+    "test:all": "npm run test && npm run test:integration",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration:docker": "npm run docker:up && npm run test:integration",
+    "test:package": "npm run build && node scripts/smoke.mjs",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mysql",
+    "mariadb",
+    "mysqldump",
+    "sql",
+    "dump",
+    "backup",
+    "restore",
+    "database",
+    "mysql2"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "mysql2": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "mysql2": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.1",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.25.1",
+    "mysql2": "^3.11.0",
+    "prettier": "^3.5.3",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.31.0",
+    "vitest": "^3.1.2"
+  }
+}

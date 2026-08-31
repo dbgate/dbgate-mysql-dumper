@@ -1,0 +1,67 @@
+# MySQL instances used by the integration / native-compatibility tests.
+#
+#   npm run docker:up      # start every version and wait until each accepts logins
+#   npm run test:integration
+#   npm run docker:down    # stop and remove the volumes
+#
+# Ports are deliberately non-default so these never collide with a local
+# MySQL install or another project's test container on 3306.
+#
+# NOTE: the images ship `mysqldump` and the `mysql` CLI. Those are used ONLY by
+# the integration tests, to prove native interoperability (`docker compose exec`).
+# The library under test never invokes an external process — everything it does
+# goes through the MysqlConnection abstraction. The healthchecks below are
+# likewise container-side readiness probes, unrelated to the library.
+services:
+  mysql57:
+    image: mysql:5.7
+    container_name: dbgate-mysql-dumper-57
+    command:
+      - --secure-file-priv=NULL
+      - --local-infile=1
+      - --event-scheduler=ON
+      - --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_ROOT_PASSWORD: 'Str0ng!Passw0rd#2024'
+    ports:
+      - '33057:3306'
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" || exit 1']
+      interval: 5s
+      timeout: 10s
+      retries: 40
+      start_period: 20s
+
+  mysql80:
+    image: mysql:8.0
+    container_name: dbgate-mysql-dumper-80
+    command:
+      - --event-scheduler=ON
+      - --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_ROOT_PASSWORD: 'Str0ng!Passw0rd#2024'
+    ports:
+      - '33080:3306'
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" || exit 1']
+      interval: 5s
+      timeout: 10s
+      retries: 40
+      start_period: 20s
+
+  mysql84:
+    image: mysql:8.4
+    container_name: dbgate-mysql-dumper-84
+    command:
+      - --event-scheduler=ON
+      - --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_ROOT_PASSWORD: 'Str0ng!Passw0rd#2024'
+    ports:
+      - '33084:3306'
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" || exit 1']
+      interval: 5s
+      timeout: 10s
+      retries: 40
+      start_period: 20s
