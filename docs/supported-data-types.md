@@ -8,6 +8,10 @@ so often.
 See [architecture.md](architecture.md#why-values-arrive-as-raw-bytes) for why the
 value mode is designed that way.
 
+The matrix is exercised on both supported flavors. MariaDB's `JSON` declaration
+round-trips as its canonical `LONGTEXT` plus `json_valid(...)` CHECK constraint;
+the stored JSON text is not converted to MySQL's binary JSON model.
+
 ## Type matrix
 
 | Type family                            | Literal form          | Fidelity                                    |          In fixture          |

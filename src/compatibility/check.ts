@@ -15,10 +15,13 @@ export { detectSourceCapabilities as detectTargetCapabilities };
 
 const FEATURE_LABELS: Record<keyof TargetCapabilities, string> = {
   supportsCheckConstraints: 'CHECK constraints (MySQL 8.0.16+)',
+  supportsCheckConstraintEnforcementMetadata: 'NOT ENFORCED CHECK metadata (MySQL 8.0.16+)',
   supportsGeneratedColumns: 'generated columns (MySQL 5.7.6+)',
   supportsJsonType: 'the JSON data type (MySQL 5.7.8+)',
   supportsInvisibleColumns: 'INVISIBLE columns (MySQL 8.0.23+)',
   supportsDescendingIndexes: 'descending and functional indexes (MySQL 8.0+)',
+  supportsIndexExpressions: 'functional indexes (MySQL 8.0.13+)',
+  supportsInvisibleIndexes: 'invisible indexes (MySQL 8.0+)',
   supportsUtf8mb40900Collations: 'utf8mb4_0900_* collations (MySQL 8.0+)',
   supportsEvents: 'scheduled events',
   supportsExpressionDefaults: 'expression column defaults (MySQL 8.0.13+)',
@@ -126,13 +129,19 @@ export function checkTargetCompatibility(
   }
 
   for (const index of database.indexes) {
-    if (index.columns.some(column => column.direction === 'DESC' || column.expression !== null)) {
+    if (index.columns.some(column => column.direction === 'DESC')) {
       require('supportsDescendingIndexes', true, `index "${index.indexName}" on table "${index.tableName}"`, {
         kind: 'index',
         databaseName: database.databaseName,
         name: index.indexName,
         parentName: index.tableName,
       });
+    }
+    if (index.columns.some(column => column.expression !== null)) {
+      require('supportsIndexExpressions', true, `index "${index.indexName}" on table "${index.tableName}"`);
+    }
+    if (!index.isVisible) {
+      require('supportsInvisibleIndexes', true, `index "${index.indexName}" on table "${index.tableName}"`);
     }
   }
 

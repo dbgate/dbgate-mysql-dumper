@@ -7,9 +7,10 @@ dependency** reachable only through a separate entry point:
 import { fromMysql2Connection, fromMysql2Pool, connectMysql2 } from 'dbgate-mysql-dumper/mysql2';
 ```
 
-`mysql2` is the bundled adapter because it is what DbGate's own MySQL plugin
-uses. `tests/packageBoundaries.test.ts` fails if any core module starts importing
-it.
+`mysql2` is the bundled adapter because it is what DbGate's MySQL/MariaDB plugin
+uses. Flavor is detected from the connected server, so no second MariaDB driver
+dependency is needed. `tests/packageBoundaries.test.ts` fails if any core module
+starts importing it.
 
 ```sh
 npm install dbgate-mysql-dumper

@@ -27,13 +27,16 @@ const SEPARATOR = '\u0000';
 export async function queryIndexes(
   connection: MysqlConnection,
   databaseName: string,
-  capabilities: { readonly supportsDescendingIndexes: boolean },
+  capabilities: {
+    readonly supportsIndexExpressions: boolean;
+    readonly supportsInvisibleIndexes: boolean;
+  },
   signal?: AbortSignal,
 ): Promise<MysqlIndex[]> {
   // `EXPRESSION`, `IS_VISIBLE` and a meaningful `COLLATION` direction all
   // arrived with MySQL 8.0, alongside descending indexes.
-  const expression = capabilities.supportsDescendingIndexes ? 'EXPRESSION' : 'NULL';
-  const isVisible = capabilities.supportsDescendingIndexes ? 'IS_VISIBLE' : "'YES'";
+  const expression = capabilities.supportsIndexExpressions ? 'EXPRESSION' : 'NULL';
+  const isVisible = capabilities.supportsInvisibleIndexes ? 'IS_VISIBLE' : "'YES'";
 
   const result = await connection.query<MysqlRow>(
     {

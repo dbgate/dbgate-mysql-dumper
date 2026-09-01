@@ -18,14 +18,54 @@ const execFileAsync = promisify(execFile);
 export interface ServerTarget {
   readonly id: string;
   readonly label: string;
+  readonly flavor: 'mysql' | 'mariadb';
   readonly port: number;
   readonly container: string;
 }
 
 export const SERVER_TARGETS: readonly ServerTarget[] = [
-  { id: 'mysql57', label: 'MySQL 5.7', port: 33057, container: 'dbgate-mysql-dumper-57' },
-  { id: 'mysql80', label: 'MySQL 8.0', port: 33080, container: 'dbgate-mysql-dumper-80' },
-  { id: 'mysql84', label: 'MySQL 8.4', port: 33084, container: 'dbgate-mysql-dumper-84' },
+  {
+    id: 'mysql57',
+    label: 'MySQL 5.7',
+    flavor: 'mysql',
+    port: 33057,
+    container: 'dbgate-mysql-dumper-57',
+  },
+  {
+    id: 'mysql80',
+    label: 'MySQL 8.0',
+    flavor: 'mysql',
+    port: 33080,
+    container: 'dbgate-mysql-dumper-80',
+  },
+  {
+    id: 'mysql84',
+    label: 'MySQL 8.4',
+    flavor: 'mysql',
+    port: 33084,
+    container: 'dbgate-mysql-dumper-84',
+  },
+  {
+    id: 'mariadb106',
+    label: 'MariaDB 10.6',
+    flavor: 'mariadb',
+    port: 33106,
+    container: 'dbgate-mysql-dumper-mariadb-106',
+  },
+  {
+    id: 'mariadb1011',
+    label: 'MariaDB 10.11',
+    flavor: 'mariadb',
+    port: 33111,
+    container: 'dbgate-mysql-dumper-mariadb-1011',
+  },
+  {
+    id: 'mariadb114',
+    label: 'MariaDB 11.4',
+    flavor: 'mariadb',
+    port: 33114,
+    container: 'dbgate-mysql-dumper-mariadb-114',
+  },
 ];
 
 export interface ServerConfig {
@@ -79,6 +119,7 @@ export async function openConnection(
     // exercise this package's own value handling, not mysql2's conveniences.
     connectTimeout: 15_000,
     multipleStatements: false,
+    charset: 'utf8mb4_unicode_ci',
   });
 }
 
@@ -277,7 +318,7 @@ export async function nativeMysqldump(
 ): Promise<Buffer> {
   const config = readServerConfig();
   const { stdout } = await runInContainer(target, [
-    'mysqldump',
+    target.flavor === 'mariadb' ? 'mariadb-dump' : 'mysqldump',
     '--default-character-set=utf8mb4',
     '-h',
     '127.0.0.1',
@@ -298,7 +339,15 @@ export async function nativeMysqlRestore(
   const config = readServerConfig();
   await runInContainer(
     target,
-    ['mysql', '--default-character-set=utf8mb4', '-h', '127.0.0.1', '-u', config.user, database],
+    [
+      target.flavor === 'mariadb' ? 'mariadb' : 'mysql',
+      '--default-character-set=utf8mb4',
+      '-h',
+      '127.0.0.1',
+      '-u',
+      config.user,
+      database,
+    ],
     sql,
   );
 }

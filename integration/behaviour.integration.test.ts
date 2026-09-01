@@ -277,7 +277,7 @@ describe.each(selectedTargets())('behaviour: $label', (target: ServerTarget) => 
         connection: source().source.connection,
         database: source().sourceIntrospection.database,
       });
-      expect(report.targetVersion.flavor).toBe('mysql');
+      expect(report.targetVersion.flavor).toBe(target.flavor);
       expect(report.maxAllowedPacket).toBeGreaterThan(0);
       expect(report.sqlMode).toBeDefined();
       // The source is the target here, so nothing can be unsupported.

@@ -154,6 +154,33 @@ describe('SqlStatementParser: executable comments', () => {
       'SELECT 1',
     ]);
   });
+
+  it('keeps MariaDB executable comments and skips the client sandbox directive', () => {
+    const script = [
+      '/*M!999999\\- enable the sandbox mode */',
+      '/*M!100616 SET @OLD_NOTE_VERBOSITY=@@NOTE_VERBOSITY, NOTE_VERBOSITY=0 */;',
+      'SELECT 1;',
+    ].join('\n');
+    expect(texts(script)).toEqual([
+      '/*M!100616 SET @OLD_NOTE_VERBOSITY=@@NOTE_VERBOSITY, NOTE_VERBOSITY=0 */',
+      'SELECT 1',
+    ]);
+  });
+
+  it('parses native MariaDB syntax identically at every byte boundary', () => {
+    const script = [
+      '/*M!999999\\- enable the sandbox mode */',
+      '/*M!100616 SET NOTE_VERBOSITY=0 */;',
+      'DELIMITER ;;',
+      "CREATE PROCEDURE `p`() BEGIN SELECT 'Zażółć; 😀'; END ;;",
+      'DELIMITER ;',
+      'SELECT 2;',
+    ].join('\n');
+    const reference = parseInChunks(script, 65_536);
+    for (const size of [4_096, 100, 7, 2, 1]) {
+      expect(parseInChunks(script, size), `chunk size ${size}`).toEqual(reference);
+    }
+  });
 });
 
 describe('SqlStatementParser: DELIMITER', () => {

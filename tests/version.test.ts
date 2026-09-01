@@ -100,14 +100,22 @@ describe('detectSourceCapabilities', () => {
     expect(capabilities.supportsDescendingIndexes).toBe(false);
   });
 
-  it('gives MariaDB the conservative set regardless of its version number', () => {
+  it('uses MariaDB-specific capability gates', () => {
     // MariaDB 10.11 numerically exceeds MySQL 8.0, but the numbering is
     // unrelated; claiming 8.0 features from it would be wrong.
     const capabilities = detectSourceCapabilities(
       version({ versionNumber: 101106, flavor: 'mariadb' }),
     );
-    expect(capabilities.supportsCheckConstraints).toBe(false);
-    expect(capabilities.supportsDescendingIndexes).toBe(false);
+    expect(capabilities.supportsCheckConstraints).toBe(true);
+    expect(capabilities.supportsCheckConstraintEnforcementMetadata).toBe(false);
+    expect(capabilities.supportsGeneratedColumns).toBe(true);
+    expect(capabilities.supportsInvisibleColumns).toBe(true);
+    expect(capabilities.supportsDescendingIndexes).toBe(true);
+    expect(capabilities.supportsIndexExpressions).toBe(false);
+    expect(capabilities.supportsInvisibleIndexes).toBe(false);
+    expect(capabilities.supportsJsonType).toBe(false);
+    expect(capabilities.supportsUtf8mb40900Collations).toBe(false);
+    expect(capabilities.supportsSpatialReferenceSystems).toBe(false);
   });
 });
 

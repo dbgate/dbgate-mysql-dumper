@@ -219,7 +219,13 @@ export class Mysql2ConnectionAdapter implements MysqlConnection {
   }
 
   private buildOptions(query: MysqlQuery, valueMode: MysqlValueMode): QueryOptions {
-    const options: Record<string, unknown> = { sql: query.sql };
+    const options: Record<string, unknown> = {
+      sql: query.sql,
+      // The adapter contract returns rows keyed by column name. Override a
+      // connection-level `rowsAsArray: true` (used by DbGate's regular query
+      // path) per dumper query instead of requiring a second connection.
+      rowsAsArray: false,
+    };
     const parameters = toDriverParameters(query.parameters);
     if (parameters) {
       options.values = parameters;

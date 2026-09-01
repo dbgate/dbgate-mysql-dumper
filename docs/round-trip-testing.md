@@ -5,13 +5,13 @@ interoperability claims are still proven against real servers.
 
 | Suite          | Docker | Tests | Command                    |
 | -------------- | :----: | ----: | -------------------------- |
-| `tests/`       |   no   |   350 | `npm test`                 |
-| `integration/` |  yes   |   129 | `npm run test:integration` |
+| `tests/`       |   no   |   360 | `npm test`                 |
+| `integration/` |  yes   |   141 | `npm run test:integration` |
 
 ```sh
 npm test                          # unit: fast, no Docker, no network
 
-npm run docker:up                 # MySQL 5.7 + 8.0 + 8.4, waits for health
+npm run docker:up                 # MySQL 5.7/8.0/8.4 + MariaDB 10.6/10.11/11.4
 npm run test:integration
 npm run docker:down               # stop and remove volumes
 
@@ -21,7 +21,8 @@ npm run test:integration:docker   # docker:up, then integration
 
 ## The interoperability matrix
 
-`integration/interop.integration.test.ts` runs four paths per server version:
+`integration/interop.integration.test.ts` runs four paths per server version,
+using the native MySQL or MariaDB tools appropriate to that target:
 
 | Test | Dump produced by   | Restored by    | Proves                               |
 | ---- | ------------------ | -------------- | ------------------------------------ |
@@ -34,7 +35,7 @@ Plus two variants: **A with `hexBlob: false`** (raw `_binary` bytes, which also
 proves the writer never routes a dump through a string) and **C with
 `extendedInsert: false, completeInsert: true`**.
 
-Six paths × three versions = 18 interop tests, and every one of them ends the
+Six paths × six versions = 36 interop tests, and every one of them ends the
 same way:
 
 ```

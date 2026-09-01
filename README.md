@@ -1,6 +1,6 @@
 # dbgate-mysql-dumper
 
-Standalone, client-agnostic MySQL dump and restore library for Node.js.
+Standalone, client-agnostic MySQL and MariaDB dump and restore library for Node.js.
 
 Produces an ordinary plain-SQL MySQL dump and restores it back — entirely over a
 MySQL connection. **No `mysqldump`, no `mysql` client, no MySQL Shell, no
@@ -16,8 +16,8 @@ DbGate internals and works outside DbGate.
 
 ## Two-way native compatibility
 
-Both directions are **proven by automated tests against real MySQL 5.7, 8.0 and
-8.4**, not assumed:
+Both directions are **proven by automated tests against real MySQL 5.7, 8.0,
+8.4 and MariaDB 10.6, 10.11, 11.4**, not assumed:
 
 - **Dumps produced by this library restore with the native `mysql` client.**
   ```sh
@@ -49,6 +49,10 @@ and [docs/round-trip-testing.md](docs/round-trip-testing.md).
 | native `mysqldump` → this library's restore    | ✅ 5.7, 8.0, 8.4 |
 | this library → this library                    | ✅ 5.7, 8.0, 8.4 |
 | native `mysqldump` → native `mysql` (baseline) | ✅ 5.7, 8.0, 8.4 |
+
+The equivalent four paths use native `mariadb-dump`/`mariadb` on MariaDB 10.6,
+10.11 and 11.4. Cross-flavor restores are best effort; the guaranteed matrix
+restores onto the same server flavor and version line.
 
 ## Install
 
@@ -180,7 +184,7 @@ backtick identifiers (with MySQL's _actual_ escaping rules — no backslash esca
 inside identifiers), all three comment forms, `DELIMITER` with any delimiter
 string, and statements split across arbitrary stream chunks.
 
-Two MySQL specifics it gets right:
+MySQL-family specifics it gets right:
 
 - **Executable comments are SQL, not comments.**
   `/*!40000 ALTER TABLE t DISABLE KEYS */` carries real, version-gated SQL and is
@@ -188,6 +192,9 @@ Two MySQL specifics it gets right:
   drop the session setup and every view and stored-program definition.
 - **`DELIMITER` is a client command.** It is consumed by the parser and never
   sent to a server that would reject it.
+- **MariaDB executable comments are SQL too.** `/*M!100616 SET ... */` is
+  preserved, while mariadb-dump's client-only sandbox directive is consumed
+  and never sent to the server.
 
 Boundary correctness is not assumed: the parser's output is asserted identical at
 **every** chunk size and **every** single split point, over both synthetic scripts

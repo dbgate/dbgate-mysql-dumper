@@ -1,6 +1,6 @@
 # Native compatibility
 
-This package produces and consumes **ordinary plain-SQL MySQL dumps**. There is
+This package produces and consumes **ordinary plain-SQL MySQL and MariaDB dumps**. There is
 no custom format, no archive wrapper, and no metadata sidecar: a `.sql` file it
 writes is the same kind of file `mysqldump` writes, and restores the same way.
 
@@ -17,7 +17,8 @@ mysql mydatabase < dump.sql
 | `dumpMysql` → `restoreSqlDump`                 | ✅     | `integration/interop.integration.test.ts`, test C |
 | native `mysqldump` → native `mysql` (baseline) | ✅     | `integration/interop.integration.test.ts`, test D |
 
-Every path is run against **MySQL 5.7, 8.0 and 8.4** over the same fixture, and
+Every path is run against **MySQL 5.7, 8.0, 8.4 and MariaDB 10.6, 10.11, 11.4**
+over the same fixture, and
 every path ends by introspecting the restored database and deep-comparing both
 its schema model and every table's rows — byte for byte, hex-encoded — against
 the source. A path that "restored without error" but lost a value fails.
@@ -25,6 +26,12 @@ the source. A path that "restored without error" but lost a value fails.
 `mysqldump` and the `mysql` client are used **only by those tests**, inside the
 server's own Docker container. Nothing under `src/` ever spawns a process;
 `tests/packageBoundaries.test.ts` fails if that stops being true.
+
+On MariaDB the native tools in this table are `mariadb-dump` and `mariadb`.
+MariaDB executable `/*M! ... */` comments are restored as SQL; its leading
+client-only sandbox directive is consumed by the streaming lexer. Same-flavor
+round trips are guaranteed. Cross-flavor restores are best effort because DDL,
+collations and feature syntax diverge.
 
 ## How close is the output?
 

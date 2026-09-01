@@ -170,8 +170,8 @@ can issue it from a connection they already hold.
 
 ### Tested versions
 
-MySQL **5.7, 8.0 and 8.4**, all four interop paths, on every run of
-`npm run test:integration`.
+MySQL **5.7, 8.0 and 8.4** and MariaDB **10.6, 10.11 and 11.4**, all four
+interop paths, on every run of `npm run test:integration`.
 
 Capability gating is by `major*10000 + minor*100 + patch`, so a feature
 introduced in a _patch_ release is gated there — `CHECK` constraints at 8.0.16,
@@ -180,23 +180,25 @@ means adding it to `integration/docker-compose.yml` and, if it introduces
 features, to `src/version/capabilities.ts`. The renderer does not need to change:
 it emits the server's own `SHOW CREATE` text.
 
-### MariaDB is detected, not supported
+### MariaDB support boundaries
 
-MariaDB forked from MySQL 5.5; its catalog, `SHOW CREATE` output and
-`information_schema` diverge in ways this package has **not** verified.
+MariaDB is detected (`version.flavor === 'mariadb'`) and uses a separate
+capability line. JSON remains MariaDB's `LONGTEXT` alias, CHECK constraints do
+not query MySQL's `TABLE_CONSTRAINTS.ENFORCED` column, and descending indexes
+are gated at MariaDB 10.8. Versions outside 10.6 through 11.x receive an
+`untested-server-version` warning.
 
-It is detected (`version.flavor === 'mariadb'`) and reported as an
-`unverified-server-flavor` warning, and it is given the conservative MySQL 5.x
-capability set regardless of its version numbers — MariaDB 10.11 numerically
-exceeds MySQL 8.0, but the numbering is unrelated, so comparing them would claim
-features MariaDB may implement differently or not at all.
+MariaDB sequences are discovered but not emitted. A
+`mariadb-sequence-not-dumped` warning names each sequence; recreate it separately
+from `SHOW CREATE SEQUENCE`. Cross-flavor MySQL/MariaDB restores are best effort,
+not part of the compatibility guarantee.
 
-Percona Server is detected the same way. It tracks MySQL closely and is likely to
-work, but is not in the test matrix either, so the same warning applies.
+MariaDB system-versioned tables are not dumped because exporting only current
+rows would silently lose historical versions. Each affected table produces a
+`mariadb-system-version-history-not-dumped` warning.
 
-DbGate uses one plugin for both MySQL and MariaDB; this package's compatibility
-contract is MySQL only. MariaDB support can be added later, backed by its own
-tests.
+Percona Server is detected but is not in the test matrix, so it receives the
+`unverified-server-flavor` warning.
 
 ## Behaviours that look like bugs but are MySQL's
 

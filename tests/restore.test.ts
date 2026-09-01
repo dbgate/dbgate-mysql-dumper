@@ -432,6 +432,9 @@ describe('rewriteBinaryLiterals', () => {
 });
 
 describe('isMysqlDump', () => {
+  it('recognizes a native MariaDB header', () => {
+    expect(isMysqlDump('-- MariaDB dump 10.19  Distrib 11.4.5-MariaDB, for Linux\n')).toBe(true);
+  });
   it('recognizes a mysqldump header', () => {
     expect(isMysqlDump('-- MySQL dump 10.13  Distrib 8.0.36, for Linux (x86_64)\n--\n')).toBe(true);
   });

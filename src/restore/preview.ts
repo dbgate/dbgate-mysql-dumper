@@ -50,7 +50,7 @@ export function safeSqlPreview(sql: string, maximumLength = 200): string {
 }
 
 /** The header line every dump this package writes begins with. */
-const DUMP_HEADER_PREFIX = '-- MySQL dump ';
+const DUMP_HEADER_PREFIXES = ['-- MySQL dump ', '-- MariaDB dump '] as const;
 
 /**
  * Heuristically detects whether `sample` looks like a MySQL SQL dump —
@@ -68,7 +68,7 @@ const DUMP_HEADER_PREFIX = '-- MySQL dump ';
 export function isMysqlDump(sample: string | Uint8Array): boolean {
   const text = typeof sample === 'string' ? sample : Buffer.from(sample).toString('utf8');
   const head = text.slice(0, 8192);
-  if (head.trimStart().startsWith(DUMP_HEADER_PREFIX)) {
+  if (DUMP_HEADER_PREFIXES.some(prefix => head.trimStart().startsWith(prefix))) {
     return true;
   }
   return (

@@ -97,16 +97,18 @@ type LexerState =
   | 'backtick'
   | 'lineComment'
   | 'blockComment'
+  | 'discardBlockComment'
   | 'skipToEndOfLine';
 
 const OPEN_CONSTRUCT_NAME: Record<
-  'singleQuote' | 'doubleQuote' | 'backtick' | 'blockComment',
+  'singleQuote' | 'doubleQuote' | 'backtick' | 'blockComment' | 'discardBlockComment',
   string
 > = {
   singleQuote: "single-quoted string ('...')",
   doubleQuote: 'double-quoted string ("...")',
   backtick: 'backtick-quoted identifier (`...`)',
   blockComment: 'block comment (/* ... */)',
+  discardBlockComment: 'block comment (/* ... */)',
 };
 
 /** `mysql` client commands, in the long and backslash-prefixed forms the client accepts. */
@@ -256,7 +258,8 @@ export class SqlStatementParser {
       this.state === 'singleQuote' ||
       this.state === 'doubleQuote' ||
       this.state === 'backtick' ||
-      this.state === 'blockComment'
+      this.state === 'blockComment' ||
+      this.state === 'discardBlockComment'
     ) {
       throw new MalformedSqlDumpError(OPEN_CONSTRUCT_NAME[this.state], this.openLine);
     }
@@ -442,6 +445,35 @@ export class SqlStatementParser {
               }
               // `/*!` (version-gated SQL) and `/*+` (optimizer hint) are
               // statement text, not comments — see the class doc.
+              if (marker === 'M') {
+                const mariaMarker = text[index + 3];
+                if (mariaMarker === undefined && !atEnd) {
+                  holdBack(index);
+                  return statements;
+                }
+                if (mariaMarker === '!') {
+                  // MariaDB 11.4+ emits this client command first. It enables
+                  // CLI sandbox mode but is not valid SQL for the server.
+                  const sandboxPrefix = '/*M!999999';
+                  const remaining = text.slice(index);
+                  if (sandboxPrefix.startsWith(remaining) && !atEnd) {
+                    holdBack(index);
+                    return statements;
+                  }
+                  if (remaining.startsWith(sandboxPrefix)) {
+                    appendUpTo(index);
+                    this.state = 'discardBlockComment';
+                    this.openLine = this.currentLine;
+                    index += 2;
+                    appendFrom = index;
+                    continue;
+                  }
+                  // `/*M!` is MariaDB's executable-comment form.
+                  this.markContent();
+                  index += 2;
+                  continue;
+                }
+              }
               if (marker === '!' || marker === '+') {
                 this.markContent();
                 index += 2;
@@ -573,6 +605,28 @@ export class SqlStatementParser {
             this.currentLine++;
           }
           index++;
+          continue;
+        }
+
+        case 'discardBlockComment': {
+          if (character === '*') {
+            if (text[index + 1] === undefined && !atEnd) {
+              appendFrom = index;
+              holdBack(index);
+              return statements;
+            }
+            if (text[index + 1] === '/') {
+              this.state = 'normal';
+              index += 2;
+              appendFrom = index;
+              continue;
+            }
+          }
+          if (character === '\n') {
+            this.currentLine++;
+          }
+          index++;
+          appendFrom = index;
           continue;
         }
       }

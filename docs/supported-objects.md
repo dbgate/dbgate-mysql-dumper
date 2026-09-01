@@ -2,7 +2,8 @@
 
 "Round-trip tested" means the object survives dump → restore and the restored
 database's introspected model deep-compares equal to the source, on **MySQL 5.7,
-8.0 and 8.4**, across all four paths of the interoperability matrix.
+8.0, 8.4 and MariaDB 10.6, 10.11, 11.4**, across all four paths of the
+interoperability matrix.
 
 ## Object matrix
 
@@ -42,6 +43,12 @@ database's introspected model deep-compares equal to the source, on **MySQL 5.7,
 Everything in the ❌ block is reported by `unsupportedFeatureDiagnostics()` with
 an explanation, so a UI can list exactly what a restore will not bring across
 without hardcoding the list.
+
+MariaDB sequences are detected but not emitted. Each produces a structured
+`mariadb-sequence-not-dumped` warning and can be recreated separately from
+`SHOW CREATE SEQUENCE`. MariaDB-specific table syntax is carried by canonical
+`SHOW CREATE TABLE` output; functional/invisible-index catalog capabilities are
+gated separately from descending indexes.
 
 ## Model coverage
 

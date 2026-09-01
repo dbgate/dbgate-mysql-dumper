@@ -62,11 +62,21 @@ export async function introspectMysql(
   const version = await detectMysqlVersion(connection, signal);
   const capabilities = detectSourceCapabilities(version);
 
-  if (version.flavor !== 'mysql') {
+  if (version.flavor !== 'mysql' && version.flavor !== 'mariadb') {
     diagnostics.push({
       severity: 'warning',
       code: 'unverified-server-flavor',
-      message: `Connected server reports flavor "${version.flavor}" (${version.versionString}). This package's compatibility contract covers MySQL; catalog layout, SHOW CREATE output and mysqldump conventions may differ. See docs/known-limitations.md.`,
+      message: `Connected server reports unverified flavor "${version.flavor}" (${version.versionString}). Catalog layout and SHOW CREATE output may differ from supported MySQL and MariaDB servers. See docs/known-limitations.md.`,
+    });
+  }
+  if (
+    version.flavor === 'mariadb' &&
+    (version.versionNumber < 100600 || version.versionNumber >= 120000)
+  ) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'untested-server-version',
+      message: `MariaDB ${version.versionString} is outside the tested 10.6 through 11.x range. The dumper will use detected MariaDB capabilities, but native interoperability is not guaranteed.`,
     });
   }
 
@@ -127,10 +137,20 @@ export async function introspectMysql(
   for (const row of tableRows) {
     const type = row.tableType.toUpperCase();
     if (type !== 'BASE TABLE' && type !== 'VIEW') {
+      const isMariaSequence = version.flavor === 'mariadb' && type === 'SEQUENCE';
+      const isMariaSystemVersioned = version.flavor === 'mariadb' && type === 'SYSTEM VERSIONED';
       diagnostics.push({
         severity: 'warning',
-        code: 'unsupported-table-type',
-        message: `Object "${row.tableName}" has TABLE_TYPE "${row.tableType}", which this package does not dump`,
+        code: isMariaSequence
+          ? 'mariadb-sequence-not-dumped'
+          : isMariaSystemVersioned
+            ? 'mariadb-system-version-history-not-dumped'
+            : 'unsupported-table-type',
+        message: isMariaSequence
+          ? `MariaDB sequence "${row.tableName}" is not dumped; recreate it separately with SHOW CREATE SEQUENCE`
+          : isMariaSystemVersioned
+            ? `MariaDB system-versioned table "${row.tableName}" is not dumped because exporting only current rows would silently lose historical versions`
+            : `Object "${row.tableName}" has TABLE_TYPE "${row.tableType}", which this package does not dump`,
         objectReference: { kind: 'table', databaseName, name: row.tableName },
       });
     }
@@ -220,9 +240,14 @@ export async function introspectMysql(
     foreignKey => isTableSelected(foreignKey.tableName, selection),
   );
   const checkConstraints = capabilities.supportsCheckConstraints
-    ? (await queryCheckConstraints(connection, databaseName, signal)).filter(check =>
-        isTableSelected(check.tableName, selection),
-      )
+    ? (
+        await queryCheckConstraints(
+          connection,
+          databaseName,
+          capabilities.supportsCheckConstraintEnforcementMetadata,
+          signal,
+        )
+      ).filter(check => isTableSelected(check.tableName, selection))
     : [];
 
   const routines = await readRoutines(

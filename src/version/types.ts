@@ -1,10 +1,10 @@
 /**
  * Which server product is behind the connection.
  *
- * MariaDB forked from MySQL 5.5 and its catalog, `SHOW CREATE` output and
- * `information_schema` diverge in ways this package has not verified. It is
- * detected and reported so callers can act on it, but no MariaDB
- * compatibility is claimed — see `docs/known-limitations.md`.
+ * MariaDB forked from MySQL 5.5 and has its own catalog and capability line.
+ * Detection is explicit so its 10.x/11.x versions are never interpreted as
+ * MySQL feature levels. Supported and untested ranges are documented in
+ * `docs/known-limitations.md`.
  */
 export type MysqlFlavor = 'mysql' | 'mariadb' | 'percona' | 'unknown';
 
@@ -34,14 +34,20 @@ export interface MysqlVersion {
 export interface SourceCapabilities {
   /** `information_schema.CHECK_CONSTRAINTS`; MySQL 8.0.16+. */
   readonly supportsCheckConstraints: boolean;
+  /** `TABLE_CONSTRAINTS.ENFORCED`; present in MySQL 8.0.16+, absent in MariaDB. */
+  readonly supportsCheckConstraintEnforcementMetadata: boolean;
   /** Generated (`VIRTUAL`/`STORED`) columns; MySQL 5.7.6+. */
   readonly supportsGeneratedColumns: boolean;
   /** Native `JSON` column type; MySQL 5.7.8+. */
   readonly supportsJsonType: boolean;
   /** `INVISIBLE` columns; MySQL 8.0.23+. */
   readonly supportsInvisibleColumns: boolean;
-  /** Functional key parts and descending indexes; MySQL 8.0+. */
+  /** Descending key parts; MySQL 8.0+, MariaDB 10.8+. */
   readonly supportsDescendingIndexes: boolean;
+  /** `STATISTICS.EXPRESSION`; MySQL 8.0.13+, not exposed by MariaDB. */
+  readonly supportsIndexExpressions: boolean;
+  /** `STATISTICS.IS_VISIBLE`; MariaDB uses different ignored-index metadata. */
+  readonly supportsInvisibleIndexes: boolean;
   /** `utf8mb4_0900_*` collations and the `utf8mb4` server default; MySQL 8.0+. */
   readonly supportsUtf8mb40900Collations: boolean;
   /** `CREATE EVENT` / `information_schema.EVENTS`; MySQL 5.1+, so always true here. */

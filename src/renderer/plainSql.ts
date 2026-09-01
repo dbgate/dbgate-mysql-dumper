@@ -432,8 +432,9 @@ function headerLines(
     return [];
   }
   const version = request.sourceVersion;
+  const product = version?.flavor === 'mariadb' ? 'MariaDB' : 'MySQL';
   return [
-    `-- MySQL dump ${DUMP_FORMAT_VERSION}  Distrib ${PRODUCT_LABEL}, for Node.js (${process.platform})`,
+    `-- ${product} dump ${DUMP_FORMAT_VERSION}  Distrib ${PRODUCT_LABEL}, for Node.js (${process.platform})`,
     '--',
     `-- Host: ${options.hostLabel}    Database: ${request.database.databaseName}`,
     '-- ------------------------------------------------------',

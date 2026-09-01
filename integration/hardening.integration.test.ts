@@ -88,7 +88,14 @@ describe.each(selectedTargets())('hardening: $label', (target: ServerTarget) => 
         // No database argument at all: the dump has to create and select its own.
         await runInContainer(
           target,
-          ['mysql', '--default-character-set=utf8mb4', '-h', '127.0.0.1', '-u', config.user],
+          [
+            target.flavor === 'mariadb' ? 'mariadb' : 'mysql',
+            '--default-character-set=utf8mb4',
+            '-h',
+            '127.0.0.1',
+            '-u',
+            config.user,
+          ],
           Buffer.from(cloned, 'utf8'),
         );
         const { openConnection } = await import('./helpers/server.js');
@@ -350,7 +357,7 @@ END`,
 
       const config = readServerConfig();
       const { stdout } = await runInContainer(target, [
-        'mysqldump',
+        target.flavor === 'mariadb' ? 'mariadb-dump' : 'mysqldump',
         '--default-character-set=latin1',
         '-h',
         '127.0.0.1',
@@ -462,12 +469,15 @@ END`,
     it('round-trips names with spaces, backticks, reserved words and unicode', async () => {
       if (!available) return;
       const source = await fresh('idents');
+      // MariaDB stores identifiers in utf8mb3 and rejects supplementary
+      // characters such as emoji even on an utf8mb4 connection.
+      const unicodeColumn = target.flavor === 'mariadb' ? 'Ünicode' : 'Ünicode 😀';
       await execStatements(source.connection, [
         'CREATE TABLE `we``ird name` (' +
           '`or``der` int NOT NULL, ' +
           '`select` varchar(32), ' +
           '`col with space` varchar(32), ' +
-          '`Ünicode 😀` varchar(32), ' +
+          `\`${unicodeColumn}\` varchar(32), ` +
           'PRIMARY KEY (`or``der`))',
         "INSERT INTO `we``ird name` VALUES (1,'a','b','c'),(2,'d','e','f')",
       ]);
@@ -540,6 +550,7 @@ END`,
      */
     it('matches native mysqldump line for line apart from documented divergences', async () => {
       if (!available) return;
+      if (target.flavor === 'mariadb') return;
       const source = await fresh('parity');
       await execStatements(source.connection, [
         `CREATE TABLE \`items\` (

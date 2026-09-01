@@ -147,7 +147,12 @@ function isRootSetStatement(sql: string): boolean {
       rest = rest.slice(newline + 1).trimStart();
       continue;
     }
-    if (rest.startsWith('/*') && !rest.startsWith('/*!') && !rest.startsWith('/*+')) {
+    if (
+      rest.startsWith('/*') &&
+      !rest.startsWith('/*!') &&
+      !rest.startsWith('/*M!') &&
+      !rest.startsWith('/*+')
+    ) {
       const close = rest.indexOf('*/', 2);
       if (close < 0) return false;
       rest = rest.slice(close + 2).trimStart();
@@ -155,7 +160,11 @@ function isRootSetStatement(sql: string): boolean {
     }
     break;
   }
-  return /^SET\b/i.test(rest) || /^\/\*!\d{0,6}\s*SET\b/i.test(rest);
+  return (
+    /^SET\b/i.test(rest) ||
+    /^\/\*!\d{0,6}\s*SET\b/i.test(rest) ||
+    /^\/\*M!\d{0,6}\s*SET\b/i.test(rest)
+  );
 }
 
 export class RestoreSessionState {

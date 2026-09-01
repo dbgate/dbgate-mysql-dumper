@@ -127,6 +127,7 @@ export async function queryForeignKeys(
 export async function queryCheckConstraints(
   connection: MysqlConnection,
   databaseName: string,
+  supportsEnforcementMetadata: boolean,
   signal?: AbortSignal,
 ): Promise<MysqlCheckConstraint[]> {
   const result = await connection.query<MysqlRow>(
@@ -135,7 +136,7 @@ export async function queryCheckConstraints(
           cc.CONSTRAINT_NAME AS constraintName,
           tc.TABLE_NAME AS tableName,
           cc.CHECK_CLAUSE AS checkClause,
-          tc.ENFORCED AS enforced
+          ${supportsEnforcementMetadata ? 'tc.ENFORCED' : "'YES'"} AS enforced
         FROM information_schema.CHECK_CONSTRAINTS cc
         JOIN information_schema.TABLE_CONSTRAINTS tc
           ON tc.CONSTRAINT_SCHEMA = cc.CONSTRAINT_SCHEMA

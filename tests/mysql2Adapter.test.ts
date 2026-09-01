@@ -18,6 +18,8 @@ class FakeMysql2Connection extends EventEmitter {
   paused = false;
   /** Every SQL string handed to `query()`, in order. */
   readonly queries: string[] = [];
+  /** Per-query options, used to verify adapter overrides of connection defaults. */
+  readonly queryOptions: { sql: string; rowsAsArray?: boolean }[] = [];
   /** Rows the next `query()` will stream, and whether to end the result set. */
   rows: unknown[] = [];
   endAfterRows = true;
@@ -26,8 +28,12 @@ class FakeMysql2Connection extends EventEmitter {
 
   private pending: (() => void)[] = [];
 
-  query(options: { sql: string }, callback?: (...args: unknown[]) => void): EventEmitter {
+  query(
+    options: { sql: string; rowsAsArray?: boolean },
+    callback?: (...args: unknown[]) => void,
+  ): EventEmitter {
     this.queries.push(options.sql);
+    this.queryOptions.push(options);
 
     if (callback) {
       // A destroyed mysql2 connection silently drops the callback. Reproducing
@@ -150,6 +156,22 @@ describe('Mysql2ConnectionAdapter: cancellation', () => {
       }
     })();
     await expect(iterate).rejects.toThrow(/destroyed/);
+  });
+});
+
+describe('Mysql2ConnectionAdapter: connection-option isolation', () => {
+  it('requests object rows even when the borrowed mysql2 connection defaults to array rows', async () => {
+    const fake = new FakeMysql2Connection();
+    const adapter = new Mysql2ConnectionAdapter(fake as never);
+
+    await adapter.query({ sql: 'SELECT VERSION() AS value' });
+    fake.rows = [{ value: '8.0.0' }];
+    for await (const _row of adapter.stream({ sql: 'SELECT value FROM sample' })) {
+      // consume the stream so its query options are observable
+    }
+
+    expect(fake.queryOptions).toHaveLength(2);
+    expect(fake.queryOptions.every(options => options.rowsAsArray === false)).toBe(true);
   });
 });
 

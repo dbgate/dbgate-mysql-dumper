@@ -110,7 +110,8 @@ export function rewriteBinaryLiterals(statement: Buffer): BinaryLiteralRewriteRe
       const marker = statement[index + 2];
       // `/*!` and `/*+` are SQL, not comments — keep scanning their contents
       // so a binary literal inside one is still found.
-      if (marker !== 0x21 && marker !== 0x2b) {
+      const isMariaExecutable = marker === 0x4d && statement[index + 3] === 0x21;
+      if (marker !== 0x21 && marker !== 0x2b && !isMariaExecutable) {
         index = skipBlockComment(statement, index);
         continue;
       }

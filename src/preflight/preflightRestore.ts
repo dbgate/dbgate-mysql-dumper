@@ -51,11 +51,21 @@ export async function preflightRestore(
     const targetCapabilities = detectSourceCapabilities(targetVersion);
     const diagnostics: MysqlDiagnostic[] = [];
 
-    if (targetVersion.flavor !== 'mysql') {
+    if (targetVersion.flavor !== 'mysql' && targetVersion.flavor !== 'mariadb') {
       diagnostics.push({
         severity: 'warning',
         code: 'unverified-server-flavor',
-        message: `Restore target reports flavor "${targetVersion.flavor}" (${targetVersion.versionString}). This package's compatibility contract covers MySQL; see docs/known-limitations.md.`,
+        message: `Restore target reports unverified flavor "${targetVersion.flavor}" (${targetVersion.versionString}). Supported targets are MySQL and MariaDB; see docs/known-limitations.md.`,
+      });
+    }
+    if (
+      targetVersion.flavor === 'mariadb' &&
+      (targetVersion.versionNumber < 100600 || targetVersion.versionNumber >= 120000)
+    ) {
+      diagnostics.push({
+        severity: 'warning',
+        code: 'untested-server-version',
+        message: `MariaDB ${targetVersion.versionString} is outside the tested 10.6 through 11.x range.`,
       });
     }
 
